@@ -47,6 +47,8 @@ function alunoNome(id){return alunos.find(a=>a.id===id)?.nome||''}
 function activeAlunos(){return alunos.filter(a=>a.ativo!==false)}
 function closeModal(){modal.classList.add('hidden');modalBox.innerHTML=''}
 function modalHtml(html){modalBox.innerHTML=html;modal.classList.remove('hidden')}
+function aviso(msg){modalHtml(`<div class="sectionTitle">${msg}</div><br><button onclick="closeModal()">OK</button>`)}
+window.alert=aviso
 function resetTabDefaults(id){const hoje=hojeISO();if(id==='aulas')dataAulas=hoje;if(id==='alunos')mesResumo=hoje.slice(0,7);if(id==='calendario'){mesCalendario=hoje.slice(0,7);calFiltros=[]}if(id==='financeiro')mesFinanceiro=hoje.slice(0,7);if(id==='cadastro'){mesCadastro=hoje.slice(0,7);cadastroAjustes={}}if(id==='ajustes'){mesAjuste=hoje.slice(0,7);ajusteAjustes={}}if(id==='editar'){mesAjuste=hoje.slice(0,7)}if(id==='relatorios'){relatorioIndex=0}}
 function showTab(id){abaAtual=id;resetTabDefaults(id);document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));renderAll()}
 async function carregarDados(){globalStatus.textContent='Carregando dados...';const [ra,ru,rp]=await Promise.all([sb.from('alunos').select('*,locais(nome)').order('nome'),sb.from('aulas').select('*').order('data_aula'),sb.from('pagamentos').select('*').order('data_vencimento')]);if(ra.error||ru.error||rp.error){globalStatus.textContent='Erro ao carregar dados do Supabase.';console.error(ra.error||ru.error||rp.error);return}alunos=ra.data||[];aulas=ru.data||[];pagamentos=rp.data||[];await normalizarVencimentosPlanos();globalStatus.classList.add('hidden');renderAll()}

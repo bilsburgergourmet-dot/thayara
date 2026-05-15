@@ -58,16 +58,19 @@ function pagamentoValor(p){return p?`R$ ${Number(p.valor||0).toLocaleString('pt-
 function planoAtualAluno(alunoId){
  const a=alunos.find(x=>x.id===alunoId)||{};
  const limite=fimMes(mesResumo);
- const ps=pagamentos.filter(p=>p.aluno_id===alunoId).sort((x,y)=>String(x.data_vencimento).localeCompare(String(y.data_vencimento)));
- let pagamento=[...ps].reverse().find(p=>String(p.data_vencimento)<=limite)||ps[ps.length-1]||null;
- const mes=(pagamento?.data_vencimento||mesResumo+'-01').slice(0,7);
- const planoQtd=Number(a.quantidade_aulas_plano||8);
- const au=aulas.filter(x=>x.aluno_id===alunoId&&String(x.data_aula||'').startsWith(mes)).sort((x,y)=>String(x.data_aula).localeCompare(String(y.data_aula))||String(x.hora_inicio).localeCompare(String(y.hora_inicio)));
+ const ps=pagamentos.filter(p=>p.aluno_id===alunoId).sort((x,y)=>String(x.data_inicio_plano||x.data_vencimento).localeCompare(String(y.data_inicio_plano||y.data_vencimento)));
+ let pagamento=[...ps].reverse().find(p=>String(p.data_inicio_plano||p.data_vencimento)<=limite)||ps[ps.length-1]||null;
+ const inicio=pagamento?.data_inicio_plano||pagamento?.data_vencimento||mesResumo+'-01';
+ const proximo=ps.find(p=>String(p.data_inicio_plano||p.data_vencimento)>String(inicio))||null;
+ const fim=proximo?.data_inicio_plano||proximo?.data_vencimento||'9999-12-31';
+ const planoQtd=Number(pagamento?.quantidade_aulas||a.quantidade_aulas_plano||8);
+ const au=aulas.filter(x=>x.aluno_id===alunoId&&String(x.data_aula||'')>=String(inicio)&&String(x.data_aula||'')<String(fim)).sort((x,y)=>String(x.data_aula).localeCompare(String(y.data_aula))||String(x.hora_inicio).localeCompare(String(y.hora_inicio)));
  const feitas=au.filter(x=>x.status==='dada');
  const faltasRegistradas=au.filter(x=>x.status!=='dada');
  const faltamQtd=Math.max(0,planoQtd-feitas.length);
- const proximo=ps.find(p=>String(p.data_vencimento)>(pagamento?.data_vencimento||''))||null;
- return {aluno:a,pagamento,proximo,mes,mesNome:`${nomesMes[Number(mes.slice(5))-1].toUpperCase()} ${mes.slice(0,4)}`,planoQtd,au,feitas,faltasRegistradas,faltamQtd};
+ const mes=inicio.slice(0,7);
+ const tipo=pagamento?.tipo_cobranca==='aula'?'Avulso':'Pacote';
+ return {aluno:a,pagamento,proximo,mes,mesNome:`${tipo} iniciado em ${fmtData(inicio)}`,planoQtd,au,feitas,faltasRegistradas,faltamQtd,inicio,fim};
 }
 function diaSemanaExt(iso){const [y,m,d]=iso.split('-').map(Number);return new Intl.DateTimeFormat('pt-BR',{weekday:'long',timeZone:'UTC'}).format(new Date(Date.UTC(y,m-1,d,12)))}
 function listaAulasDetalhe(list){return list.length?list.map(x=>`- ${fmtData(x.data_aula)} (${diaSemanaExt(x.data_aula)}) ${String(x.hora_inicio).slice(0,5)} — ${String(x.status).toUpperCase()}${x.motivo?' | '+x.motivo:''}`).join('\n'):'Nenhuma aula registrada.'}
@@ -80,7 +83,7 @@ function diasSemanaAluno(pl){
 function detalheAluno(id){const pl=planoAtualAluno(id);modalHtml(`<div class="sectionTitle">${pl.aluno.nome}</div><div class="infoList">Plano referência: ${pl.mesNome}\nPlano: ${pl.planoQtd} aulas\nÚltimo pagamento: ${fmtData(pl.pagamento?.data_recebimento||pl.pagamento?.data_vencimento)||'-'} — ${pagamentoValor(pl.pagamento)}\nFrequência: ${pl.aluno.frequencia_semanal||0}x semana\nDias: ${diasSemanaAluno(pl)}\nAulas dadas no plano: ${pl.feitas.length}\nAulas faltantes no plano: ${pl.faltamQtd}</div><br><button class="secondary" onclick="closeModal()">Fechar</button>`)}
 function detalheResumo(id,tipo){const pl=planoAtualAluno(id);let titulo='',body='';
  if(tipo==='ultimo'){titulo='Último pagamento';body=`Data: ${fmtData(pl.pagamento?.data_recebimento||pl.pagamento?.data_vencimento)||'-'}\nValor: ${pagamentoValor(pl.pagamento)}\nStatus: ${pl.pagamento?.status||'-'}`}
- if(tipo==='plano'){titulo='Dias do plano';body=`Plano referência: ${pl.mesNome}\nQuantidade: ${pl.planoQtd} aulas\n\n${listaAulasDetalhe(pl.au)}`}
+ if(tipo==='plano'){titulo='Dias do plano';body=`Plano referência: ${pl.mesNome}\nQuantidade contratada: ${pl.planoQtd} aulas\n\n${listaAulasDetalhe(pl.au)}`}
  if(tipo==='freq'){titulo='Frequência semanal';body=`${pl.aluno.frequencia_semanal||0}x semana\nDias identificados: ${diasSemanaAluno(pl)}`}
  if(tipo==='feitas'){titulo='Aulas já feitas';body=listaAulasDetalhe(pl.feitas)}
  if(tipo==='faltam'){titulo='Aulas que faltam';const faltas=pl.faltasRegistradas;body=(faltas.length?listaAulasDetalhe(faltas)+'\n':'')+(pl.faltamQtd>faltas.length?`\n${pl.faltamQtd-faltas.length} aula(s) ainda sem data definida neste plano.`:'')||'Nada faltando neste plano.'}
